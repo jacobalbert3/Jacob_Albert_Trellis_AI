@@ -10,7 +10,6 @@ source venv/bin/activate
 # Copy environmental variables
 cp .env.example .env
 
-
 # Install dependencies
 pip install -r requirements.txt
 
