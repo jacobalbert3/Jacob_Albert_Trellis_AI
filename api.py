@@ -7,19 +7,19 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from temporalio.client import Client
-# from temporalio.exceptions import WorkflowNotFoundError
 
 from database import db_manager, Order, Payment, Event
 
-# Configure logging
+# logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Temporal Order Workflow API", version="1.0.0")
 
-# Global Temporal client
+# global Temporal client
 temporal_client: Optional[Client] = None
 
+# pydantic models
 class OrderStartRequest(BaseModel):
     payment_id: str
 
@@ -59,12 +59,13 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """Health check endpoint."""
+    """health check"""
     return {"message": "Temporal Order Workflow API is running"}
 
+#start order workflow
 @app.post("/orders/{order_id}/start")
 async def start_order_workflow(order_id: str, request: OrderStartRequest):
-    """Start OrderWorkflow with a provided payment_id."""
+    """Start OrderWorkflow with provided payment_id."""
     if not temporal_client:
         raise HTTPException(status_code=500, detail="Temporal client not initialized")
     
@@ -72,6 +73,7 @@ async def start_order_workflow(order_id: str, request: OrderStartRequest):
         # Start the workflow
         from order_workflow import OrderWorkflow
         
+        #get the handle 
         handle = await temporal_client.start_workflow(
             OrderWorkflow.run,
             args=[order_id, request.payment_id],
@@ -81,7 +83,7 @@ async def start_order_workflow(order_id: str, request: OrderStartRequest):
         
         logger.info(f"Started order workflow {handle.id} for order {order_id}")
         
-        # Log the event
+        # Log the event (event table)
         _log_event(order_id, "workflow_started", {
             "workflow_id": handle.id,
             "payment_id": request.payment_id
@@ -100,7 +102,7 @@ async def start_order_workflow(order_id: str, request: OrderStartRequest):
 
 @app.post("/orders/{order_id}/signals/cancel")
 async def cancel_order(order_id: str):
-    """Send the CancelOrder signal to the workflow."""
+    """Send CancelOrder signal to the workflow."""
     if not temporal_client:
         raise HTTPException(status_code=500, detail="Temporal client not initialized")
     
@@ -132,18 +134,18 @@ async def cancel_order(order_id: str):
             raise HTTPException(status_code=500, detail=f"Failed to cancel order: {str(e)}")
 
 @app.post("/orders/{order_id}/signals/update-address")
-async def update_address(order_id: str, request: AddressUpdateRequest):
-    """Send the UpdateAddress signal to the workflow."""
+async def update_address(order_id: str, request:AddressUpdateRequest):
+    """Send UpdateAddress signal to workflow."""
     if not temporal_client:
-        raise HTTPException(status_code=500, detail="Temporal client not initialized")
+        raise HTTPException(status_code=500,detail="Temporal client not initialized")
     
     try:
         workflow_id = f"order-{order_id}"
         
-        # Get workflow handle
+        # Get handle
         handle = temporal_client.get_workflow_handle(workflow_id)
         
-        # Prepare address data
+        # Prepare address data (expected format)
         new_address = {
             "street": request.street,
             "city": request.city,
@@ -174,7 +176,7 @@ async def update_address(order_id: str, request: AddressUpdateRequest):
             raise HTTPException(status_code=404, detail=f"Workflow for order {order_id} not found")
         else:
             logger.error(f"Error updating address for order {order_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to update address: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed update address: {str(e)}")
 
 @app.get("/orders/{order_id}/status")
 async def get_order_status(order_id: str):
@@ -184,14 +186,13 @@ async def get_order_status(order_id: str):
     
     try:
         workflow_id = f"order-{order_id}"
-        
         # Get workflow handle
         handle = temporal_client.get_workflow_handle(workflow_id)
         
         # Get workflow status
         workflow_status = await handle.describe()
         
-        # Query workflow for current state (this is the key addition!)
+        # Query workflow for current state
         workflow_state = None
         try:
             workflow_state = await handle.query("status")
@@ -265,7 +266,7 @@ async def get_order_events(order_id: str):
         session.close()
 
 def _log_event(order_id: str, event_type: str, payload: Dict[str, Any]):
-    """Log an event to the database."""
+    """Log event to the database."""
     session = db_manager.get_session()
     try:
         event = Event(

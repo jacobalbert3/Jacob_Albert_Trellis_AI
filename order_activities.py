@@ -21,6 +21,7 @@ class OrderActivities:
         """Charge payment for the order with idempotency."""
         return await payment_charged(order, payment_id, None)
     
+    #added activity for updating address!
     @activity.defn
     async def update_address(self, order_id: str, new_address: Dict[str, Any]) -> Dict[str, Any]:
         """Update the shipping address for an order."""

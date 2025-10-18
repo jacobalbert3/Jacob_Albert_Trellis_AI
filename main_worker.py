@@ -15,15 +15,12 @@ from database import db_manager
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Reduce Temporal's verbose error logging
 logging.getLogger("temporalio.activity").setLevel(logging.WARNING)
 logging.getLogger("temporalio.worker._workflow_instance").setLevel(logging.WARNING)
 
 async def main():
-    """Main worker that handles both order and shipping workflows."""
-    
-    # Use environment variable for Temporal address, fallback to localhost for local development
+    """Main worker -- handles both order and shipping workflows."""
+
     temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
     logger.info(f"Connecting to Temporal at {temporal_address}")
     
@@ -33,7 +30,7 @@ async def main():
     order_activities = OrderActivities()
     shipping_activities = ShippingActivities()
     
-    # Create workers for different task queues
+    # Create workers -- different task queues
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as activity_executor:
         
         # Main order worker

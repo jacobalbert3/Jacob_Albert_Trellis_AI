@@ -14,19 +14,19 @@ async def flaky_call() -> None:
     """Either raise an error or sleep long enough to trigger an activity timeout."""
     rand_num = random.random()
     if rand_num < 0.33:
-        logger.info("💥 FLAKY CALL: Forced failure (33% chance)")
+        logger.info("!!FLAKY CALL: Forced failure (33% chance)")
         raise RuntimeError("Forced failure for testing")
     
     if rand_num < 0.67:
-        logger.info("⏰ FLAKY CALL: Simulating timeout (33% chance) - will sleep for 5 minutes")
-        await asyncio.sleep(300)  # Expect the activity layer to time out before this completes
+        logger.info("!!FLAKY CALL: Simulating timeout (33% chance)")
+        await asyncio.sleep(300)
     
     # Success case (33% chance)
-    logger.info("✅ FLAKY CALL: Success (33% chance)")
+    logger.info("!!FLAKY CALL: Success (33% chance)")
 		
 		
 async def order_received(order_id: str) -> Dict[str, Any]:
-    logger.info(f"📦 ACTIVITY: Starting order_received for {order_id}")
+    logger.info(f"ACTIVITY: Starting order_received for {order_id}")
     await flaky_call()
     
     # Hardcoded order data
@@ -45,7 +45,7 @@ async def order_received(order_id: str) -> Dict[str, Any]:
         }
     }
     
-    # Insert order into database using async SQLAlchemy with idempotency
+    # Insert order into database
     async_session = db_manager.get_async_session()
     try:
         # Check if order already exists (idempotency)
@@ -88,7 +88,7 @@ async def order_received(order_id: str) -> Dict[str, Any]:
 
 async def order_validated(order: Dict[str, Any]) -> bool:
     order_id = order.get("order_id", "unknown")
-    logger.info(f"✅ ACTIVITY: Starting order_validated for {order_id}")
+    logger.info(f"ACTIVITY: Starting order_validated for {order_id}")
     await flaky_call()
     
     # Fetch order from database and update validation status with idempotency
@@ -98,7 +98,7 @@ async def order_validated(order: Dict[str, Any]) -> bool:
         if not order_id:
             raise ValueError("Order ID is required")
         
-        # Fetch the order from database using async SQLAlchemy
+        # Fetch order from database using async
         result = await async_session.execute(
             select(Order).where(Order.id == order_id)
         )
@@ -131,19 +131,16 @@ async def order_validated(order: Dict[str, Any]) -> bool:
         await async_session.close()
 
 async def payment_charged(order: Dict[str, Any], payment_id: str, db) -> Dict[str, Any]:
-    """Charge payment after simulating an error/timeout first.
-    You must implement your own idempotency logic in the activity or here.
-    """
+    """Charge payment"""
     order_id = order.get("order_id", "unknown")
-    logger.info(f"💳 ACTIVITY: Starting payment_charged for {order_id} (payment_id: {payment_id})")
+    logger.info(f"ACTIVITY: Starting payment_charged for {order_id} (payment_id: {payment_id})")
     
     # Calculate amount
     amount = sum(i.get("qty", 1) for i in order.get("items", []))
     
-    # Implement idempotency logic using async SQLAlchemy
     async_session = db_manager.get_async_session()
     try:
-        # Check if payment already exists (idempotency)
+        # Check if payment already exists
         result = await async_session.execute(
             select(Payment).where(Payment.payment_id == payment_id)
         )
@@ -159,11 +156,10 @@ async def payment_charged(order: Dict[str, Any], payment_id: str, db) -> Dict[st
             }
         
         # EXTERNAL SIDE EFFECT: Call payment service (simulated with flaky_call)
-        print(f"💳 EXTERNAL SIDE EFFECT: Charging payment {payment_id} for amount {amount}")
-        await flaky_call()  # This simulates the external payment service call
+        await flaky_call()  
         
         # RECORD EXTERNAL SIDE EFFECT AFTER IT SUCCEEDS
-        # Only record in database AFTER external payment succeeds
+
         new_payment = Payment(
             payment_id=payment_id,
             order_id=order.get("order_id"),
@@ -173,8 +169,7 @@ async def payment_charged(order: Dict[str, Any], payment_id: str, db) -> Dict[st
         
         async_session.add(new_payment)
         await async_session.commit()
-        
-        print(f"✅ EXTERNAL SIDE EFFECT RECORDED: Payment {payment_id} charged successfully for amount {amount}")
+
         
         return {
             "status": "charged",
@@ -192,14 +187,14 @@ async def payment_charged(order: Dict[str, Any], payment_id: str, db) -> Dict[st
 async def order_shipped(order: Dict[str, Any]) -> str:
     await flaky_call()
     
-    # Update order status to shipped in database with idempotency
+    # Update order status
     async_session = db_manager.get_async_session()
     try:
         order_id = order.get("order_id")
         if not order_id:
             raise ValueError("Order ID is required")
         
-        # Fetch and update order using async SQLAlchemy
+        # Fetch and update order
         result = await async_session.execute(
             select(Order).where(Order.id == order_id)
         )
@@ -208,7 +203,7 @@ async def order_shipped(order: Dict[str, Any]) -> str:
         if not db_order:
             raise ValueError(f"Order {order_id} not found in database")
         
-        # Check if already shipped (idempotency)
+        # Check if already shipped
         if db_order.state == "shipped":
             print(f"Order {order_id} already shipped (idempotent)")
             return "Shipped"
@@ -228,7 +223,7 @@ async def order_shipped(order: Dict[str, Any]) -> str:
 
 async def package_prepared(order: Dict[str, Any]) -> str:
     order_id = order.get("order_id", "unknown")
-    logger.info(f"📦 ACTIVITY: Starting package_prepared for {order_id}")
+    logger.info(f"ACTIVITY: Starting package_prepared for {order_id}")
     await flaky_call()
     
     # Mark package as prepared in database with idempotency
@@ -238,7 +233,7 @@ async def package_prepared(order: Dict[str, Any]) -> str:
         if not order_id:
             raise ValueError("Order ID is required")
         
-        # Fetch and update order using async SQLAlchemy
+        # Fetch and update order using async
         result = await async_session.execute(
             select(Order).where(Order.id == order_id)
         )
@@ -247,7 +242,7 @@ async def package_prepared(order: Dict[str, Any]) -> str:
         if not db_order:
             raise ValueError(f"Order {order_id} not found in database")
         
-        # Check if already prepared (idempotency)
+        # Check if already prepared
         if db_order.state == "package_prepared":
             print(f"Package for order {order_id} already prepared (idempotent)")
             return "Package ready"
@@ -267,16 +262,16 @@ async def package_prepared(order: Dict[str, Any]) -> str:
 
 async def carrier_dispatched(order: Dict[str, Any]) -> str:
     order_id = order.get("order_id", "unknown")
-    logger.info(f"🚚 ACTIVITY: Starting carrier_dispatched for {order_id}")
+    logger.info(f"ACTIVITY: Starting carrier_dispatched for {order_id}")
     
-    # Record carrier dispatch status in database with idempotency
+    # Record carrier dispatch status in database
     async_session = db_manager.get_async_session()
     try:
         order_id = order.get("order_id")
         if not order_id:
             raise ValueError("Order ID is required")
         
-        # Fetch and update order using async SQLAlchemy
+        # Fetch and update order
         result = await async_session.execute(
             select(Order).where(Order.id == order_id)
         )
@@ -285,20 +280,17 @@ async def carrier_dispatched(order: Dict[str, Any]) -> str:
         if not db_order:
             raise ValueError(f"Order {order_id} not found in database")
         
-        # Check if already dispatched (idempotency)
+        # Check if already dispatched
         if db_order.state == "dispatched":
             print(f"Carrier for order {order_id} already dispatched (idempotent)")
             return "Dispatched"
         
-        # EXTERNAL SIDE EFFECT: Call carrier service (simulated with flaky_call)
-        print(f"🚚 EXTERNAL SIDE EFFECT: Dispatching carrier for order {order_id}")
+
         await flaky_call()  # This simulates the external carrier service call
         
-        # RECORD EXTERNAL SIDE EFFECT AFTER IT SUCCEEDS
-        # Only record in database AFTER external carrier dispatch succeeds
+
         db_order.state = "dispatched"
         await async_session.commit()
-        print(f"✅ EXTERNAL SIDE EFFECT RECORDED: Carrier dispatched for order {order_id}")
         
         return "Dispatched"
         
@@ -311,10 +303,9 @@ async def carrier_dispatched(order: Dict[str, Any]) -> str:
 
 
 async def update_order_address(order_id: str, new_address: Dict[str, Any]) -> Dict[str, Any]:
-    """Update the shipping address for an order with idempotency."""
-    logger.info(f"🏠 ACTIVITY: Starting update_order_address for {order_id}")
+    """Update shipping address for an order with idempotency."""
+    logger.info(f"ACTIVITY: Starting update_order_address for {order_id}")
     
-    # Use async SQLAlchemy for database operations
     async_session = db_manager.get_async_session()
     try:
         # Check if order exists
@@ -326,13 +317,13 @@ async def update_order_address(order_id: str, new_address: Dict[str, Any]) -> Di
         if not order:
             raise ValueError(f"Order {order_id} not found")
         
-        # Update the shipping address
+        # Update shipping address
         order.shipping_address = new_address
         order.updated_at = datetime.utcnow()
         
         await async_session.commit()
         
-        logger.info(f"✅ ACTIVITY: Address updated for {order_id} to {new_address}")
+        logger.info(f"ACTIVITY: Address updated for {order_id} to {new_address}")
         
         return {
             "order_id": order_id,

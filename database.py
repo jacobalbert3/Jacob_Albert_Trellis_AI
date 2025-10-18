@@ -22,11 +22,6 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     shipping_address = Column(JSONB)
 
-class Item(Base):
-    __tablename__ = 'items'
-    sku = Column(String, primary_key=True)
-    stock = Column(Integer, nullable=False)
-
 class Payment(Base):
     __tablename__ = 'payments'
     
@@ -55,7 +50,7 @@ class DatabaseManager:
         self.AsyncSessionLocal = None
         
     def _get_database_url(self):
-        """Get database URL from environment or use default for local development."""
+        """Get database URL from env"""
         if os.environ.get('DOCKER_ENV') == 'true':
             # Running in Docker
             return "postgresql://temporal:temporal@postgresql:5432/temporal"
