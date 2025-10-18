@@ -20,7 +20,7 @@ class TestAPILocal:
     def test_complete_order_workflow(self):
         """Test complete order workflow by calling API endpoints."""
         test_order_id = "test-order-123"
-        test_payment_id = "test-payment-456"
+        test_payment_id = "test-payment-567"
         
         with httpx.Client() as client:
             # Step 1: Start the order workflow

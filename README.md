@@ -115,7 +115,7 @@ docker-compose exec postgresql psql -U temporal -d temporal -c "\dt"
 
 ---
 
-## ⚙️ How to Run Workers and Trigger Workflows
+## How to Run Workers and Trigger Workflows
 
 ### Starting Workers
 ```bash
@@ -131,7 +131,7 @@ docker-compose logs -f order-worker
 
 ### Triggering Workflows
 
-#### 1. Start an Order Workflow
+#### 1. Start an Order Workflow (note can change orderID and paymentID to whatever!)
 ```bash
 curl -X POST "http://localhost:8000/orders/ORDER-123/start" \
   -H "Content-Type: application/json" \
@@ -144,12 +144,6 @@ curl -X POST "http://localhost:8000/orders/ORDER-123/start" \
 ```bash
 curl -X GET "http://localhost:8000/orders/ORDER-123/status"
 ```
-
-#### 3. View Workflow in Temporal UI
-- Open `http://localhost:8080`
-- Navigate to "Workflows"
-- Search for your workflow ID: `order-ORDER-123`
-
 ---
 
 ## How to Send Signals and Query/Inspect State
@@ -228,7 +222,7 @@ CREATE TABLE payments (
 **Idempotency Rationale:**
 • **Payment Safety**: Uses `payment_id` as primary key to prevent duplicate charges - critical for financial operations
 • **Temporal Retry Safety**: When Temporal retries activities due to timeouts/failures, payment won't be charged twice because of key
-• **Database audit trail**: Each payment_id creates exactly one record in the database. If that order is cancelled, we can clean up those records as a followup
+• **Database audit trail**: Each payment_id creates exactly one record in the database. If that order is cancelled, we can clean up those records as a followup (note this has not been done yet)
 
 **Unique Key Strategy Across All Tables:**
 • **Orders Table**: `id` (order_id) as primary key - prevents duplicate orders, ensures one order per unique identifier
